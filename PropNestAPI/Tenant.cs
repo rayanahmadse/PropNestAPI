@@ -1,4 +1,4 @@
-﻿namespace PropNest.Models
+namespace PropNest.Models
 {
     public class Tenant
     {
@@ -8,6 +8,6 @@
         public string? Email { get; set; }
         public string? ContactNumber { get; set; }
         public string? EmergencyContact { get; set; }
-        public string Status { get; set; } = "Active";
+        public string Status { get; set; } = "Inactive";
     }
 }

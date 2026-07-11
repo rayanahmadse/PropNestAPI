@@ -1,4 +1,4 @@
-﻿using Microsoft.Data.SqlClient;
+using Microsoft.Data.SqlClient;
 using PropNest.Models;
 
 namespace PropNestAPI
@@ -36,6 +36,7 @@ namespace PropNestAPI
 
         public int Add(Tenant t)
         {
+            t.Status = "Inactive"; // Always start Inactive until assigned an agreement
             using var con = new SqlConnection(_connectionString);
             con.Open();
             string sql = @"INSERT INTO Tenant(FullName,CNIC,Email,ContactNumber,EmergencyContact,Status)
@@ -65,6 +66,16 @@ namespace PropNestAPI
             con.Open();
             using var cmd = new SqlCommand("DELETE FROM Tenant WHERE TenantID=@id", con);
             cmd.Parameters.AddWithValue("@id", id);
+            cmd.ExecuteNonQuery();
+        }
+
+        public void UpdateStatus(int tenantId, string status)
+        {
+            using var con = new SqlConnection(_connectionString);
+            con.Open();
+            using var cmd = new SqlCommand("UPDATE Tenant SET Status=@Status WHERE TenantID=@id", con);
+            cmd.Parameters.AddWithValue("@id", tenantId);
+            cmd.Parameters.AddWithValue("@Status", status);
             cmd.ExecuteNonQuery();
         }
 

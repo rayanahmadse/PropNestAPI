@@ -9,11 +9,13 @@ namespace PropNestAPI.Controllers
     {
         private readonly RentalAgreementRepository _repo;
         private readonly RentPaymentRepository _paymentRepo;
+        private readonly TenantRepository _tenantRepo;
 
-        public RentalAgreementsController(RentalAgreementRepository repo, RentPaymentRepository paymentRepo)
+        public RentalAgreementsController(RentalAgreementRepository repo, RentPaymentRepository paymentRepo, TenantRepository tenantRepo)
         {
             _repo = repo;
             _paymentRepo = paymentRepo;
+            _tenantRepo = tenantRepo;
         }
 
         [HttpGet]
@@ -30,6 +32,22 @@ namespace PropNestAPI.Controllers
         public IActionResult Create(RentalAgreement a)
         {
             a.AgreementID = _repo.Add(a);
+
+            if (a.AgreementStatus == "Active")
+            {
+                _tenantRepo.UpdateStatus(a.TenantID, "Active");
+            }
+            else
+            {
+                var remaining = _repo.GetAll()
+                    .Where(ag => ag.TenantID == a.TenantID && ag.AgreementID != a.AgreementID && ag.AgreementStatus == "Active")
+                    .ToList();
+                if (!remaining.Any())
+                {
+                    _tenantRepo.UpdateStatus(a.TenantID, "Inactive");
+                }
+            }
+
             return Ok(a);
         }
 
@@ -69,17 +87,75 @@ namespace PropNestAPI.Controllers
         [HttpPut("{id}")]
         public IActionResult Update(int id, RentalAgreement a)
         {
-            if (_repo.GetById(id) == null) return NotFound();
+            var original = _repo.GetById(id);
+            if (original == null) return NotFound();
+
             a.AgreementID = id;
             _repo.Update(a);
+
+            // Re-evaluate tenant statuses:
+            // Case 1: Tenant changed
+            if (original.TenantID != a.TenantID)
+            {
+                // Activate new tenant
+                if (a.AgreementStatus == "Active")
+                {
+                    _tenantRepo.UpdateStatus(a.TenantID, "Active");
+                }
+
+                // Check and deactivate old tenant
+                var remainingForOld = _repo.GetAll()
+                    .Where(ag => ag.TenantID == original.TenantID && ag.AgreementStatus == "Active")
+                    .ToList();
+                if (!remainingForOld.Any())
+                {
+                    _tenantRepo.UpdateStatus(original.TenantID, "Inactive");
+                }
+            }
+            else
+            {
+                // Case 2: Tenant did not change, but status changed
+                if (original.AgreementStatus != a.AgreementStatus)
+                {
+                    if (a.AgreementStatus == "Active")
+                    {
+                        _tenantRepo.UpdateStatus(a.TenantID, "Active");
+                    }
+                    else if (a.AgreementStatus == "Expired" || a.AgreementStatus == "Terminated")
+                    {
+                        var remainingForTenant = _repo.GetAll()
+                            .Where(ag => ag.TenantID == a.TenantID && ag.AgreementID != id && ag.AgreementStatus == "Active")
+                            .ToList();
+                        if (!remainingForTenant.Any())
+                        {
+                            _tenantRepo.UpdateStatus(a.TenantID, "Inactive");
+                        }
+                    }
+                }
+            }
+
             return NoContent();
         }
 
         [HttpDelete("{id}")]
         public IActionResult Delete(int id)
         {
-            if (_repo.GetById(id) == null) return NotFound();
+            var agreement = _repo.GetById(id);
+            if (agreement == null) return NotFound();
+
             _repo.Delete(id);
+
+            // Check if tenant still has any other active agreements
+            var remaining = _repo.GetAll()
+                .Where(ag => ag.TenantID == agreement.TenantID && ag.AgreementID != id && ag.AgreementStatus == "Active")
+                .ToList();
+
+            if (!remaining.Any())
+            {
+                // No more active agreements — set tenant back to Inactive
+                _tenantRepo.UpdateStatus(agreement.TenantID, "Inactive");
+            }
+
             return NoContent();
         }
     }

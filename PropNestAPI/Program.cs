@@ -18,6 +18,7 @@ builder.Services.AddSingleton<PropNestAPI.Services.PdfReceiptGenerator>();
 
 builder.Services.AddSingleton<StaffRepository>();
 builder.Services.AddSingleton<MaintenanceRequestRepository>();
+builder.Services.AddSingleton<UserRepository>();
 // Background worker for auto-closing old maintenance requests
 builder.Services.AddHostedService<PropNestAPI.Workers.MaintenanceAutoCloseWorker>();
 

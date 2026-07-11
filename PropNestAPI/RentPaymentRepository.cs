@@ -189,21 +189,28 @@ namespace PropNestAPI
             return p;
         }
 
+        private static bool HasColumn(SqlDataReader r, string name)
+        {
+            for (int i = 0; i < r.FieldCount; i++)
+                if (r.GetName(i).Equals(name, StringComparison.OrdinalIgnoreCase)) return true;
+            return false;
+        }
+
         private RentPayment Map(SqlDataReader r) => new RentPayment
         {
-            PaymentID = (int)r["PaymentID"],
-            AgreementID = (int)r["AgreementID"],
-            PaymentDate = r["PaymentDate"] == DBNull.Value ? null : (DateTime?)r["PaymentDate"],
-            DueDate = r["DueDate"] == DBNull.Value ? DateTime.MinValue : (DateTime)r["DueDate"],
-            AmountPaid = r["AmountPaid"] == DBNull.Value ? 0m : (decimal)r["AmountPaid"],
+            PaymentID     = (int)r["PaymentID"],
+            AgreementID   = (int)r["AgreementID"],
+            PaymentDate   = r["PaymentDate"] == DBNull.Value ? null : (DateTime?)r["PaymentDate"],
+            DueDate       = r["DueDate"] == DBNull.Value ? DateTime.MinValue : (DateTime)r["DueDate"],
+            AmountPaid    = r["AmountPaid"] == DBNull.Value ? 0m : (decimal)r["AmountPaid"],
             PaymentMethod = r["PaymentMethod"] as string ?? string.Empty,
-            Status = r["Status"] as string ?? string.Empty,
-            ReceiptPath = r["ReceiptPath"] == DBNull.Value ? null : r["ReceiptPath"] as string,
-            ReceiptGenerated = r["ReceiptGenerated"] == DBNull.Value ? false : (bool)r["ReceiptGenerated"],
-            LateFeeAmount = r["LateFeeAmount"] == DBNull.Value ? 0m : (decimal)r["LateFeeAmount"],
-            LateFeeApplied = r["LateFeeApplied"] == DBNull.Value ? false : (bool)r["LateFeeApplied"],
-            ReminderSentAt = r["ReminderSentAt"] == DBNull.Value ? null : (DateTime?)r["ReminderSentAt"],
-            ReminderSent = r["ReminderSent"] == DBNull.Value ? false : (bool)r["ReminderSent"]
+            Status        = r["Status"] as string ?? string.Empty,
+            ReceiptPath      = HasColumn(r, "ReceiptPath")      && r["ReceiptPath"]      != DBNull.Value ? r["ReceiptPath"] as string : null,
+            ReceiptGenerated = HasColumn(r, "ReceiptGenerated") && r["ReceiptGenerated"] != DBNull.Value ? (bool)r["ReceiptGenerated"] : false,
+            LateFeeAmount    = HasColumn(r, "LateFeeAmount")    && r["LateFeeAmount"]    != DBNull.Value ? (decimal)r["LateFeeAmount"] : 0m,
+            LateFeeApplied   = HasColumn(r, "LateFeeApplied")   && r["LateFeeApplied"]   != DBNull.Value ? (bool)r["LateFeeApplied"] : false,
+            ReminderSentAt   = HasColumn(r, "ReminderSentAt")   && r["ReminderSentAt"]   != DBNull.Value ? (DateTime?)r["ReminderSentAt"] : null,
+            ReminderSent     = HasColumn(r, "ReminderSent")     && r["ReminderSent"]     != DBNull.Value ? (bool)r["ReminderSent"] : false
         };
 
         private void SetParams(SqlCommand cmd, RentPayment p)
